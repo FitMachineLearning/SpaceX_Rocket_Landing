@@ -62,7 +62,7 @@ random_every_n = 50
 num_retries = 30
 starting_explore_prob = 0.05
 training_epochs = 3
-mini_batch = 512
+mini_batch = 512*2
 load_previous_weights = False
 observe_and_train = True
 save_weights = True
@@ -71,7 +71,7 @@ load_memory_arrays = False
 do_training = True
 num_games_to_play = 20000
 random_num_games_to_play = num_games_to_play/3
-max_steps = 840
+max_steps = 2000
 
 #Selective memory settings
 sm_normalizer = 20
@@ -372,10 +372,11 @@ def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
         tW = (memW)+0.0
         tS = memW +0.0
 
-        treshold = tR.mean()
-        gameAverage = tS.mean()
-        gameDistance = math.fabs(tS.max() - tS.mean())
-        gameTreshold = tS.mean() + gameDistance*0.4
+        treshold = memoryR.mean()
+        gameAverage = memW.mean()
+        gameDistance = math.fabs(memW.max() - memW.mean())
+        gameTreshold = memW.mean() + gameDistance*0.2
+        memRMax = memR.max()
 
         #print("gameMean",tS.mean(),"gameMax",tS.max(),"gameTreshold",gameTreshold)
 
@@ -398,12 +399,12 @@ def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
         for i in range(np.alen(tR)):
             pr = predictTotalRewards(tX[i],GetRememberedOptimalPolicy(tX[i]))
             #print ("tR[i]",tR[i],"pr",pr)
-            d = math.fabs( memoryR.max() - pr)
+            d = math.fabs( memRMax - pr)
             tW[i]= 0.0000000000000005
             if (tR[i]>pr ):
-                tW[i]=0.15
-            if (tR[i]>pr and tS[i]>gameAverage):
-                tW[i]=0.25
+                tW[i]=0.05
+            if (tR[i]>pr + d*0.25):
+                tW[i]=0.85
             if (tR[i]>pr and tS[i]>gameTreshold):
                 tW[i]=1
             #if (tR[i]>pr+d*0.005 and tR[i]>game_max) :
