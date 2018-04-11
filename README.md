@@ -1,6 +1,6 @@
 <table style="width:100% border: none" >
   <tr>
-    <th><img src="/img/RocketLand1.png" width="250"/></th>         
+    <th><img src="/img/RocketLand1.png" width="450"/></th>         
   </tr>
 </Table>
 
