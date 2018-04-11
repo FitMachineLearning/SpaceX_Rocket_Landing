@@ -1,13 +1,14 @@
+
+# SpaceX_Rocket_Landing
+OpenAI gym extension of Simulated SpaceX rocket landing. The repository also contains the RL agent/solution using [DDSM](https://github.com/FitMachineLearning/FitML) (Deep Deterministic Selective Memory) from the [FitML](https://github.com/FitMachineLearning/FitML) repo.
+
+
+The original environment from EmerbersArc can be found [here](https://github.com/EmbersArc/gym)
 <table style="width:100% border: none" >
   <tr>
     <th><img src="/img/RocketLand1.png" width="450"/></th>         
   </tr>
 </Table>
-
-# SpaceX_Rocket_Landing
-OpenAI gym extension of Simulated SpaceX rocket landing. The repository also contains the RL agent/solution using [DDSM](https://github.com/FitMachineLearning/FitML) (Deep Deterministic Selective Memory) from the [FitML](https://github.com/FitMachineLearning/FitML) repo.
-
-The original environment from EmerbersArc can be found [here](https://github.com/EmbersArc/gym)
 
 ## Usage
 1 - Download the repo
