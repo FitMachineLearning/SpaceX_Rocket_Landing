@@ -1,3 +1,9 @@
+<table style="width:100% border: none" >
+  <tr>
+    <th><img src="/img/cCartPole.jpg" width="250"/></th>         
+  </tr>
+</Table>
+
 # SpaceX_Rocket_Landing
 OpenAI gym extension of Simulated SpaceX rocket landing. The repository also contains the RL agent/solution using [DDSM](https://github.com/FitMachineLearning/FitML) (Deep Deterministic Selective Memory) from the [FitML](https://github.com/FitMachineLearning/FitML) repo.
 
