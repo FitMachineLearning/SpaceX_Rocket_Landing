@@ -3,7 +3,7 @@ import numpy as np
 from tensorforce.agents import PPOAgent
 
 
-NUM_GAMES_TO_PLAY = 7000
+NUM_GAMES_TO_PLAY = 70000
 
 env = gym.make("LunarLanderContinuous-v2")
 # Create a Proximal Policy Optimization agent
@@ -37,7 +37,11 @@ for game in range(NUM_GAMES_TO_PLAY):
         reward = reward/100
         gameTotalReward = gameTotalReward + reward
         allRewards = np.vstack((allRewards, np.array([reward])))
-        agent.observe(reward=reward, terminal=False)
+        if done:
+            agent.observe(reward=reward, terminal=True)
+        else:
+            agent.observe(reward=reward, terminal=False)
+
         #print("Action: {} Observations Size:{} score: {}".format(a,obs.shape,reward))
         if done:
             print("#",game," last game average ", (gameTotalReward/step)*100,"global avg", allRewards.mean()*100, "max",allRewards.max()*100,"min",allRewards.min()*100 , "steps", step)
