@@ -17,7 +17,7 @@ agent = PPOAgent(
     batching_capacity=100,
     step_optimizer=dict(
         type='adam',
-        learning_rate=1e-1
+        learning_rate=1e-3
     )
 )
 
