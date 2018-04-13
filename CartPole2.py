@@ -20,7 +20,25 @@ agent = PPOAgent(
         dict(type='dense', size=32,activation='relu'),
         dict(type='dense', size=32,activation='relu'),
         dict(type='dense', size=32,activation='relu')
-    ]
+    ],
+
+    update_mode=dict(
+        unit='episodes',
+        batch_size=4,
+        frequency=4
+    ),
+    memory=dict(
+        type='latest',
+        include_next_states=False,
+        capacity=50000
+    ),
+    step_optimizer=dict(
+        type='adam',
+        learning_rate=1e-2
+    ),
+    subsampling_fraction=0.3,
+    optimization_steps=20
+
 )
 
 
