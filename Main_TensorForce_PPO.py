@@ -22,21 +22,9 @@ from tensorforce.agents import PPOAgent
 from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
 
-
-
-class OpenAIGymExt(OpenAIGym):
-    def __init__(self, gym_id, monitor=None, monitor_safe=False, monitor_video=0, visualize=False):
-        OpenAIGym.__init__(self,gym_id,monitor,monitor_video,True)
-        print("Creating extended gym environment ",gym_id)
-
-    def render(self,mode):
-        self.gym.render(mode)
-
-
 # Create an OpenAIgym environment.
-environment = OpenAIGym('RocketLander-v0', visualize=True)
-#environment.render(mode="human")
-#environment.reset()
+environment = OpenAIGym('LunarLanderContinuous-v2', visualize=True)
+
 # Network as list of layers
 # - Embedding layer:
 #   - For Gym environments utilizing a discrete observation space, an
@@ -47,6 +35,7 @@ environment = OpenAIGym('RocketLander-v0', visualize=True)
 
 # Note that depending on the following layers used, the embedding layer *may* need a
 # flattening layer
+
 
 
 
@@ -92,7 +81,7 @@ agent = PPOAgent(
         type='multi_step',
         optimizer=dict(
             type='adam',
-            learning_rate=1e-3
+            learning_rate=1e-2
         ),
         num_steps=5
     ),
