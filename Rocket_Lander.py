@@ -48,17 +48,16 @@ FPS = 60
 SCALE_S = 0.35  # Temporal Scaling, lower is faster - adjust forces appropriately
 INITIAL_RANDOM = 0.4  # Random scaling of initial velocity, higher is more difficult
 
-START_HEIGHT = 1000.0
-START_SPEED = 80.0
+START_HEIGHT = 1000.0 / 2
+START_SPEED = 80.0 / 2
 
 # ROCKET
 MIN_THROTTLE = 0.4
 GIMBAL_THRESHOLD = 0.4
-MAIN_ENGINE_POWER = 1600 * SCALE_S
-SIDE_ENGINE_POWER = 100 / FPS * SCALE_S
+MAIN_ENGINE_POWER = 1600*3 * SCALE_S
+SIDE_ENGINE_POWER = 100*3 / FPS * SCALE_S
 
-#ROCKET_WIDTH = 3.66 * SCALE_S
-ROCKET_WIDTH = 3.66*1.5 * SCALE_S
+ROCKET_WIDTH = 3.66*2 * SCALE_S
 ROCKET_HEIGHT = ROCKET_WIDTH / 3.7 * 47.9
 ENGINE_HEIGHT = ROCKET_WIDTH * 0.5
 ENGINE_WIDTH = ENGINE_HEIGHT * 0.7
@@ -75,10 +74,8 @@ SHIP_HEIGHT = ROCKET_WIDTH
 SHIP_WIDTH = SHIP_HEIGHT * 40
 
 # VIEWPORT
-#VIEWPORT_H = 1440
-#VIEWPORT_W = 1008
-VIEWPORT_H = int(1000)
-VIEWPORT_W = int(700)
+VIEWPORT_H = 1440/1.5
+VIEWPORT_W = 1008/1.5
 H = 1.1 * START_HEIGHT * SCALE_S
 W = float(VIEWPORT_W) / VIEWPORT_H * H
 
@@ -383,7 +380,7 @@ class RocketLander(gym.Env):
         groundcontact = self.legs[0].ground_contact or self.legs[1].ground_contact
         brokenleg = (self.legs[0].joint.angle < 0 or self.legs[1].joint.angle > -0) and groundcontact
         outside = abs(pos.x - W / 2) > W / 2 or pos.y > H
-        fuelcost = 0.1 * (0 * self.power + abs(self.force_dir)) / FPS
+        fuelcost = 0.0001 * (0 * self.power + abs(self.force_dir)) / FPS
         landed = self.legs[0].ground_contact and self.legs[1].ground_contact and speed < 0.1
         done = False
 
