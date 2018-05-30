@@ -1,5 +1,5 @@
 '''
-PyBullet Hopper Walker with
+LunarLanderContinuous solution with
  - Selective Memory
  - Actor Critic
  - Parameter Noising
@@ -9,15 +9,14 @@ https://github.com/FitMachineLearning/FitML/
 https://www.youtube.com/channel/UCi7_WxajoowBl4_9P0DhzzA/featured
 Update
 Deep Network
-Starts Hopping at 200
-
-
+Starts to land consistantly at 350
 '''
+
 import numpy as np
 import keras
 import gym
-#import pybullet
-#import pybullet_envs
+import pybullet
+import pybullet_envs
 #import roboschool
 
 
@@ -27,6 +26,7 @@ import h5py
 #import matplotlib.pyplot as plt
 import math
 
+from random import gauss
 from keras.layers.advanced_activations import LeakyReLU, PReLU
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
@@ -37,45 +37,56 @@ from keras import optimizers
 
 PLAY_GAME = False #Set to True if you want to agent to play without training
 uses_critic = True
-uses_parameter_noising = False
+uses_parameter_noising = True
 
+ENVIRONMENT_NAME = "RocketLander-v0"
 num_env_variables = 10
 num_env_actions = 3
-num_initial_observation = 10
-learning_rate =  0.002
-apLearning_rate = 0.001
+
+
+num_initial_observation = 0
+learning_rate =  0.0002
+apLearning_rate = 0.0001
+
+MUTATION_PROB = 0.2
+
 littl_sigma = 0.00006
-big_sigma = 0.006
-upper_delta = 0.035
-lower_delta = 0.01
-ENVIRONMENT_NAME = "RocketLander-v0"
-version_name = ENVIRONMENT_NAME + "ker_v10"
+big_sigma = 0.06
+upper_delta = 0.0075
+lower_delta = 0.005
+#gaussSigma = 0.01
+version_name = ENVIRONMENT_NAME + "ker_v12"
 weigths_filename = version_name+"-weights.h5"
 apWeights_filename = version_name+"-weights-ap.h5"
 
 
 #range within wich the SmartCrossEntropy action parameters will deviate from
 #remembered optimal policy
-sce_range = 0.2
+
 b_discount = 0.995
-max_memory_len = 20000
-experience_replay_size = 20000
+max_memory_len = 500000
+experience_replay_size = 2000
 random_every_n = 50
 num_retries = 60
 starting_explore_prob = 0.005
-training_epochs = 1000
-critic_training_epoch = 200
-mini_batch = 512
-load_previous_weights = False
+training_epochs = 6
+mini_batch = 512*4
+load_previous_weights = True
 observe_and_train = True
 save_weights = True
 save_memory_arrays = True
-load_memory_arrays = False
+load_memory_arrays = True
 do_training = True
-num_games_to_play = 20000
+num_games_to_play = 200000
 random_num_games_to_play = num_games_to_play/3
+USE_GAUSSIAN_NOISE = True
 CLIP_ACTION = True
-max_steps = 1490
+HAS_REWARD_SCALLING = False
+USE_ADAPTIVE_NOISE = False
+HAS_EARLY_TERMINATION_REWARD = False
+EARLY_TERMINATION_REWARD = -5
+max_steps = 995
+
 
 
 #Selective memory settings
@@ -93,9 +104,15 @@ actions_1_hot = np.zeros((num_env_actions,num_env_actions))
 actions_1_hot[np.arange(num_env_actions),possible_actions] = 1
 
 #Create testing enviroment
+gym.envs.register(
+    id="my"+ENVIRONMENT_NAME,
+    entry_point='gym.envs.box2d:'+"RocketLander",
+    max_episode_steps=5500,      # MountainCar-v0 uses 200
 
-env = gym.make(ENVIRONMENT_NAME)
-#env.render(mode="human")
+)
+
+env = gym.make("my"+ENVIRONMENT_NAME)
+env.render(mode="human")
 env.reset()
 
 
@@ -119,15 +136,16 @@ def custom_error(y_true, y_pred, Qsa):
 #nitialize the Reward predictor model
 Qmodel = Sequential()
 #model.add(Dense(num_env_variables+num_env_actions, activation='tanh', input_dim=dataX.shape[1]))
-Qmodel.add(Dense(100, activation='relu', input_dim=dataX.shape[1]))
-Qmodel.add(Dropout(0.5))
-Qmodel.add(Dense(50, activation='relu'))
-Qmodel.add(Dropout(0.5))
-Qmodel.add(Dense(25, activation='relu'))
+Qmodel.add(Dense(10000, activation='relu', input_dim=dataX.shape[1]))
 #Qmodel.add(Dropout(0.5))
-
+#Qmodel.add(Dense(256, activation='relu'))
+#Qmodel.add(Dropout(0.5))
+#Qmodel.add(Dense(256, activation='relu'))
+#Qmodel.add(Dropout(0.5))
+#Qmodel.add(Dense(64, activation='relu'))
+#Qmodel.add(Dropout(0.5))
 Qmodel.add(Dense(dataY.shape[1]))
-opt = optimizers.adam(lr=learning_rate)
+opt = optimizers.rmsprop(lr=learning_rate)
 #opt = optimizers.Adadelta()
 
 Qmodel.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
@@ -136,16 +154,17 @@ Qmodel.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 #initialize the action predictor model
 action_predictor_model = Sequential()
 #model.add(Dense(num_env_variables+num_env_actions, activation='tanh', input_dim=dataX.shape[1]))
-action_predictor_model.add(Dense(100, activation='relu', input_dim=apdataX.shape[1]))
-action_predictor_model.add(Dropout(0.5))
-action_predictor_model.add(Dense(50, activation='relu'))
-action_predictor_model.add(Dropout(0.5))
-action_predictor_model.add(Dense(25, activation='relu'))
+action_predictor_model.add(Dense(9000, activation='relu', input_dim=apdataX.shape[1]))
 #action_predictor_model.add(Dropout(0.5))
-
+#action_predictor_model.add(Dense(256, activation='relu'))
+#action_predictor_model.add(Dropout(0.5))
+#action_predictor_model.add(Dense(256, activation='relu'))
+#action_predictor_model.add(Dropout(0.5))
+#action_predictor_model.add(Dense(64, activation='relu'))
+#action_predictor_model.add(Dropout(0.5))
 action_predictor_model.add(Dense(apdataY.shape[1]))
-opt2 = optimizers.adam(lr=apLearning_rate)
-opt2 = optimizers.Adadelta()
+opt2 = optimizers.rmsprop(lr=apLearning_rate)
+#opt2 = optimizers.Adadelta()
 
 action_predictor_model.compile(loss='mse', optimizer=opt2, metrics=['accuracy'])
 
@@ -153,11 +172,13 @@ action_predictor_model.compile(loss='mse', optimizer=opt2, metrics=['accuracy'])
 #initialize the action predictor model
 noisy_model = Sequential()
 #model.add(Dense(num_env_variables+num_env_actions, activation='tanh', input_dim=dataX.shape[1]))
-noisy_model.add(Dense(100, activation='relu', input_dim=apdataX.shape[1]))
+noisy_model.add(Dense(9000, activation='relu', input_dim=apdataX.shape[1]))
 #noisy_model.add(Dropout(0.5))
-noisy_model.add(Dense(50, activation='relu'))
+#noisy_model.add(Dense(256, activation='relu'))
 #noisy_model.add(Dropout(0.5))
-noisy_model.add(Dense(25, activation='relu'))
+#noisy_model.add(Dense(256, activation='relu'))
+#noisy_model.add(Dropout(0.5))
+#noisy_model.add(Dense(64, activation='relu'))
 #noisy_model.add(Dropout(0.5))
 noisy_model.add(Dense(apdataY.shape[1]))
 opt3 = optimizers.Adadelta()
@@ -220,6 +241,7 @@ mGames = []
 mAverageScores = []
 mSteps = []
 mAP_Counts = 0
+oldAPCount = 0
 num_add_mem = 0
 mAPPicks = []
 
@@ -252,10 +274,18 @@ def add_noise_simple(mu, largeNoise=False):
     #print ("x/200",x,"big_sigma",big_sigma)
     return mu + x
 
+def add_gaussian_noise(mu,noiseSigma,largeNoise=False):
+    #print ( gauss(mu, noiseSigma) )
+    if np.random.rand(1) < MUTATION_PROB:
+        return gauss(mu, noiseSigma)
+    else:
+        return mu+0.0
 
 #add_noise_simple = np.vectorize(add_noise_simple,otypes=[np.float])
 add_noise = np.vectorize(add_noise,otypes=[np.float])
 add_noise_simple = np.vectorize(add_noise_simple,otypes=[np.float])
+add_gaussian_noise = np.vectorize(add_gaussian_noise,otypes=[np.float])
+
 
 
 def add_noise_to_model(targetModel,largeNoise = False):
@@ -270,7 +300,10 @@ def add_noise_to_model(targetModel,largeNoise = False):
         w = targetModel.layers[k].get_weights()
         if np.alen(w) >0 :
             #print("k==>",k)
-            w[0] = add_noise(w[0],largeNoise)
+            if USE_GAUSSIAN_NOISE:
+                w[0] = add_gaussian_noise(w[0],big_sigma,largeNoise)
+            else:
+                w[0] = add_noise_simple(w[0],largeNoise)
 
         targetModel.layers[k].set_weights(w)
     return targetModel
@@ -370,7 +403,7 @@ def scale_weights(memR,memW):
 
 
 def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
-    for t in range(training_epochs):
+    for t in range(1):
         tSA = (memSA)+0.0
         tR = (memR)+0.0
         tX = (memS)+0.0
@@ -386,7 +419,7 @@ def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
         #print("gameMean",tS.mean(),"gameMax",tS.max(),"gameTreshold",gameTreshold)
 
         train_C = np.arange(np.alen(tR))
-        train_C = train_C[tR.flatten()>treshold]
+        #train_C = train_C[tR.flatten()>treshold]
         tX = tX[train_C,:]
         tY = tY[train_C,:]
         tW = tW[train_C,:]
@@ -413,7 +446,7 @@ def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
                 tW[i]=0.15
             #if (tR[i]>pr and tS[i]>gameAverage):
             #    tW[i]=0.25
-            if (tR[i]>pr + d*0.5 and tS[i]>gameAverage):
+            if (tR[i]>pr + d*0.5 ):
                 tW[i]=1
             #if (tR[i]>pr+d*0.005 and tR[i]>game_max) :
             #    tW[i] = 1
@@ -432,7 +465,7 @@ def pr_actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
 
 
 def actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
-    for t in range(training_epochs):
+    for t in range(1):
         tSA = (memSA)+0.0
         tR = (memR)+0.0
         tX = (memS)+0.0
@@ -445,7 +478,7 @@ def actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
 
         distance = math.fabs(memoryR.max()-memoryR.mean())
         #treshold = memoryR.mean()+ distance*0.75
-        treshold = memoryR.mean()+ stdDev*1
+        treshold = memoryR.mean()+ stdDev*1.3
         gameAverage = memoryR.mean()
         gameDistance = math.fabs(memoryW.max() - memoryR.mean())
         gameTreshold = memoryW.mean() + gameStdDev*0
@@ -454,6 +487,7 @@ def actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
 
         train_C = np.arange(np.alen(tR))
         #train_C = train_C[tS.flatten()> gameTreshold] # Only take games that are above gameTreshold
+        train_C = train_C[tR.flatten()>treshold] # Only take games that are above gameTreshold
         tX = tX[train_C,:]
         tY = tY[train_C,:]
         tW = tW[train_C,:]
@@ -478,7 +512,7 @@ def actor_experience_replay(memSA,memR,memS,memA,memW,num_epochs=1):
         #print("gameMean",tS.mean(),"gameMax",tS.max(),"gameTreshold",gameTreshold)
 
         train_D = np.arange(np.alen(tR))
-        train_D = train_D[tR.flatten()>treshold] # Only take steps with rewards above threshold
+        #train_D = train_D[tR.flatten()>treshold] # Only take steps with rewards above threshold
         tX = tX[train_D,:]
         tY = tY[train_D,:]
         tW = tW[train_D,:]
@@ -527,7 +561,7 @@ def add_controlled_noise(targetModel,big_sigma,largeNoise = False):
         a = a.flatten()
     #print("Output Before noise ",a)
 
-    while ( delta > upper_delta or delta < lower_delta) and deltaCount <3:
+    while ( delta > upper_delta or delta < lower_delta) and deltaCount <1:
         #noisy_model.set_weights(action_predictor_model.get_weights())
         reset_noisy_model()
         targetModel = noisy_model
@@ -542,16 +576,17 @@ def add_controlled_noise(targetModel,big_sigma,largeNoise = False):
         delta = c.mean()
 
         deltaCount+=1
-        if delta > upper_delta:
-            big_sigma = big_sigma *0.9
-            #print("Delta",delta," out of bound adjusting big_sigma", big_sigma)
+        if USE_ADAPTIVE_NOISE:
+            if delta > upper_delta:
+                big_sigma = big_sigma *0.9
+                #print("Delta",delta," out of bound adjusting big_sigma", big_sigma)
 
-        if delta < lower_delta:
-            big_sigma = big_sigma *1.1
-            #print("Delta",delta," out of bound adjusting big_sigma", big_sigma)
-        #if delta > 3 or delta <0.01:
-        #    print("Delta",delta," out of bound adjusting big_sigma", big_sigma, "to",1/delta)
-        #    big_sigma = 1 / delta
+            if delta < lower_delta:
+                big_sigma = big_sigma *1.1
+                #print("Delta",delta," out of bound adjusting big_sigma", big_sigma)
+            #if delta > 3 or delta <0.01:
+            #    print("Delta",delta," out of bound adjusting big_sigma", big_sigma, "to",1/delta)
+            #    big_sigma = 1 / delta
     print("Tried x time ", deltaCount,"delta =", delta,"big_sigma ",big_sigma)
     return targetModel,big_sigma
 
@@ -578,7 +613,7 @@ for game in range(num_games_to_play):
     if game > num_initial_observation and uses_parameter_noising:
         is_noisy_game = False
         #print("Adding Noise")
-        if (game%2==0 ):
+        if (game%4==0 ):
             is_noisy_game = True
             if True or last_best_noisy_game < memoryR.mean() or game%6==0:
                 print("Adding BIG Noise")
@@ -617,11 +652,12 @@ for game in range(num_games_to_play):
                 #print("Using Actor")
                 if is_noisy_game and uses_parameter_noising:
                     remembered_optimal_policy = GetRememberedOptimalPolicyFromNoisyModel(noisy_model,qs)
+                    #mAP_Counts = oldAPCount
                 else:
                     remembered_optimal_policy = GetRememberedOptimalPolicy(qs)
                 a = remembered_optimal_policy
 
-                if uses_critic:
+                if uses_critic :
                     #print("Using critric")
                     stock = np.zeros(num_retries)
                     stockAction = np.zeros(shape=(num_retries,num_env_actions))
@@ -650,16 +686,19 @@ for game in range(num_games_to_play):
 
 
 
-        env.render()
         qs_a = np.concatenate((qs,a), axis=0)
 
         #get the target state and reward
         s,r,done,info = env.step(a)
         #record only the first x number of states
+        env.render()
 
-        #if done and step<max_steps-3:
-        #    r = -100
-        r=r*100
+        #if HAS_EARLY_TERMINATION_REWARD:
+        #    if done and step<max_steps-3:
+        #        r = EARLY_TERMINATION_REWARD
+        #if True or HAS_REWARD_SCALLING:
+        #    r=r/200 #reward scalling to from [-1,1] to [-100,100]
+
         if step ==0:
             gameSA[0] = qs_a
             gameS[0] = qs
@@ -771,14 +810,9 @@ for game in range(num_games_to_play):
             #if game >3:
                 #actor_experience_replay(gameSA,gameR,gameS,gameA,gameW,1)
 
-            if game > 3 and game %1 ==0:
-                # train on all memory
-                print("Experience Replay")
-                #for i in range(3):
 
-                actor_experience_replay(memorySA,memoryR,memoryS,memoryA,memoryW,training_epochs)
-            if game > 3 and game %1 ==0 and uses_critic:
-                for t in range(critic_training_epoch):
+            if game > 200 and game %1 ==0 and uses_critic:
+                for t in range(training_epochs):
                     tSA = (memorySA)
                     tR = (memoryR)
                     train_A = np.random.randint(tR.shape[0],size=int(min(experience_replay_size,np.alen(tR) )))
@@ -786,6 +820,9 @@ for game in range(num_games_to_play):
                     tSA = tSA    [train_A,:]
                     #print("Training Critic n elements =", np.alen(tR))
                     Qmodel.fit(tSA,tR, batch_size=mini_batch, nb_epoch=1,verbose=0)
+
+                    print("Actor Experience Replay")
+                    actor_experience_replay(memorySA,memoryR,memoryS,memoryA,memoryW,training_epochs)
             if game > 3 and game %5 ==-1 and uses_parameter_noising:
                 print("Training noisy_actor")
                 train_noisy_actor()
@@ -811,7 +848,7 @@ for game in range(num_games_to_play):
 
 
         if done:
-            print(" last reward = ",r)
+            oldAPCount = mAP_Counts
             if gameR.mean() >0:
                 num_positive_avg_games += 1
             if game%1==0:
@@ -825,7 +862,10 @@ for game in range(num_games_to_play):
                 mGames.append(game)
                 mSteps.append(step/1000*100)
                 mAPPicks.append(mAP_Counts/step*100)
-                mAverageScores.append(max(memoryR.mean(), -150))
+
+                mAverageScores.append(max(memoryR.mean()*200, -150))
+
+
                 bar_chart = pygal.HorizontalLine()
                 bar_chart.x_labels = map(str, mGames)                                            # Then create a bar graph object
                 bar_chart.add('Average score', mAverageScores)  # Add some values
