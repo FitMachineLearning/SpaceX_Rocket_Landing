@@ -5,6 +5,7 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revolute
 import gym
 from gym import spaces
 from gym.utils import seeding
+import math
 
 """
 
@@ -380,7 +381,7 @@ class RocketLander(gym.Env):
         groundcontact = self.legs[0].ground_contact or self.legs[1].ground_contact
         brokenleg = (self.legs[0].joint.angle < 0 or self.legs[1].joint.angle > -0) and groundcontact
         outside = abs(pos.x - W / 2) > W / 2 or pos.y > H
-        fuelcost = 0.0001 * (0 * self.power + abs(self.force_dir)) / FPS
+        fuelcost = 0.01 * (0 * self.power + abs(self.force_dir)) / FPS
         landed = self.legs[0].ground_contact and self.legs[1].ground_contact and speed < 0.3
         done = False
 
@@ -408,12 +409,19 @@ class RocketLander(gym.Env):
                 done = True
 
         if done:
-            reward += max(-25, 0 - 2 * (speed*speed + distance*distance + abs(angle)*9 + abs(vel_a)))
-            print("Speed ",speed,"distance ",distance*distance,"angle ",angle*9,"vel_a",vel_a)
-        elif not groundcontact:
-            reward -= 0.25 / FPS
+            #reward += max(-25, 0 - 2 * (vel_l[1] + distance*distance + abs(angle) + abs(vel_a*3)))
+            if abs(angle)>0.3:
+                print("addint angle penalty. angle  ",angle, "penalty ", -200)
+                reward += (-200)
+            if abs(vel_a)>0.3:
+                reward += (-100)
 
-        reward = np.clip(reward, -25, 1)
+            landedScore = 0
+            if self.legs[0].ground_contact and self.legs[1].ground_contact:
+                landedScore = 50
+
+            print("x ", x_distance, "y ", y_distance, "landedScore ", landedScore)
+            reward += landedScore + abs(1-y_distance)*30 + 10*abs(x_distance) -2*(math.fabs(vel_l[1])*40 )
 
         # REWARD -------------------------------------------------------------------------------------------------------
 
